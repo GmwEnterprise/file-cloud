@@ -1,0 +1,97 @@
+body {
+    padding: 0;
+    margin: 0;
+    background-color: #ececec;
+}
+
+#v-app {
+    margin: 0 1em;
+}
+
+.block {
+    background-color: white;
+    padding: 1em;
+    margin-top: 1em;
+}
+
+.flex-center {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.current-path {
+    font-size: .9em;
+    line-height: 1.5;
+    padding: 1em 0;
+}
+
+.item-title {
+    color: #8c8c8c;
+    width: 9em;
+    text-align: end;
+    padding-right: 1em;
+}
+
+.file-link {
+    color: #8c8c8c;
+}
+
+.file-link:hover {
+    text-decoration-line: underline;
+    color: #444;
+    cursor: pointer;
+}
+
+.hover-context:hover {
+    cursor: context-menu;
+}
+
+.upload-index {
+    color: #8c8c8c;
+    width: 3em;
+    text-align: center;
+}
+
+.upload-item {
+    font-size: .9em;
+}
+
+.upload-item:hover {
+    text-decoration-line: underline;
+    cursor: context-menu;
+}
+
+#common-usage {
+    display: flex;
+    flex-direction: column;
+}
+
+#common-usage:hover {
+    cursor: context-menu;
+}
+
+.common-usage-item {
+    font-size: 0.9em;
+    color: #7b7b7b;
+}
+
+#create-new-folder {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgb(68 68 68 / 0.5);
+    /*opacity: 0.5;*/
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.create-new-folder-opeartion-area {
+    width: 500px;
+    height: 400px;
+    background-color: white;
+}

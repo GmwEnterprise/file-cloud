@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>File Cloud Main Page</title>
+    <link rel="stylesheet" href="/resources/file-list.css">
+</head>
+<body>
+<div id="v-app">
+    <div class="block" id="file-upload">
+        <h3>上传文件:</h3>
+        <input style="display: none" type="file" ref="file-input-element" @change="inputFileElementChange"/>
+        <button @click="addUploadFile()">添加要上传的文件</button>
+        <button @click="upload(currentPath)" :disabled="!allowUpload">上传</button>
+        <div v-show="allowUpload">
+            <div class="flex-center" v-for="(file, idx) in uploadFiles" :key="idx">
+                <span class="upload-index">[{{ idx + 1 }}]</span>
+                <span class="upload-item">{{ file.inputName + '/' + file.file.name }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="block" id="file-tree">
+        <h3>文件目录:</h3>
+        <div class="current-path">当前路径：{{ currentPath }}</div>
+        <div v-if="currentItem">
+            <div class="flex-center hover-context">
+                <span class="item-title">【OPTION】</span>
+                <span class="file-link" @click="newFolder()">新建目录</span>
+                <div id="create-new-folder" style="display: none" v-show="creatingFolder">
+                    <div class="create-new-folder-opeartion-area">
+                        <div class="form-item">
+                            <label for="create-folder-option-folder-name">文件夹名称</label>
+                            <input id="create-folder-option-folder-name" type="text"
+                                   v-model="createFolderOption.folderName"/>
+                        </div>
+                        <div class="form-item">
+                            <button @click="submitCreatingFolder()">确定</button>
+                            <button @click="creatingFolder = false">取消</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div v-show="notRootPath" class="flex-center hover-context">
+                <span class="item-title">【OPTION】</span>
+                <span class="file-link" @click="back()">返回上层目录</span>
+            </div>
+            <hr>
+            <div v-for="(item, id) in currentItem.children" :key="id" class="flex-center hover-context">
+                <span class="item-title" v-show="item.file">【FILE】</span>
+                <span class="item-title" v-show="item.directory">【DIRECTORY】</span>
+                <span class="file-link" @click="clickItem(item)">{{ item.pathname }}</span>
+            </div>
+            <div v-show="!currentItem.children" style="padding-left: 2em">Empty.</div>
+        </div>
+    </div>
+    <div class="block" id="common-usage">
+        <h3>使用说明:</h3>
+        <span class="common-usage-item" v-for="(text, id) in usage" :key="id">{{ (id + 1) + '） ' + text }}</span>
+    </div>
+</div>
+<!-- vue与axios -->
+<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+<script src="https://cdn.bootcdn.net/ajax/libs/axios/0.20.0/axios.js"></script>
+<script>
+    var http = axios.create()
+
+    var app = new Vue({
+        el: '#v-app',
+        data: {
+            usage: [
+                "点击【DIRECTORY】项目将会打开子目录",
+                "点击【FILE】项目将会下载文件",
+                "每次上传的文件将会添加到当前目录",
+                "支持批量上传文件",
+            ],
+            title: '文件存储',
+            root: null,
+            currentItem: null,
+            currentPathStack: null, // 使用一个栈结构来表示当前路径，并且提供上下级跳转的能力
+            // allowUpload: false
+            uploadFiles: [],
+            creatingFolder: false, // 是否正在新建目录
+            createFolderOption: {
+                folderName: '',
+                folderNameValidator: function (name) {
+                    // TODO 校验新建文件的名称是否合规
+                    return true
+                }
+            }
+        },
+        computed: {
+            allowUpload: {
+                get: function () {
+                    return this.uploadFiles.length > 0
+                }
+            },
+            currentPath: {
+                get: function () {
+                    var path = ''
+                    for (index in this.currentPathStack) {
+                        var item = this.currentPathStack[index]
+                        path += '/' + item.pathname
+                    }
+                    return path
+                }
+            },
+            notRootPath: {
+                get: function () {
+                    return this.currentPathStack.length > 1
+                }
+            }
+        },
+        mounted: function () {
+            var vm = this
+            http.get('/api/files').then(function (response) {
+                console.debug(response)
+                vm.root = response.data
+                console.debug('root.pathname = ' + vm.root.pathname + ', will modify it.')
+                vm.root.pathname = 'root'
+                vm.currentItem = response.data
+                vm.currentPathStack = [vm.root]
+            })
+        },
+        methods: {
+            back: function () {
+                var index = this.currentPathStack.length - 2
+                this.currentPathStack.pop()
+                this.currentItem = this.currentPathStack[index]
+            },
+            clickItem: function (item) {
+                console.debug(item)
+                if (item.directory) {
+                    // 文件夹 处理
+                    this.currentItem = item
+                    this.currentPathStack.push(item)
+                } else if (item.file) {
+                    // 文件 处理
+                    var downloadLink = '/api/download'
+                    http.get(downloadLink, {
+                        params: {
+                            path: item.path
+                        },
+                        responseType: 'blob'
+                    }).then(function (resp) {
+                        console.debug(resp)
+
+                        var data = resp.data
+                        var headers = resp.headers
+                        var filename = headers['content-disposition'].replace(/\w+;filename=(.*)/, '$1')
+                        var blob = new Blob([data], {type: headers['content-type']})
+                        var dom = document.createElement('a')
+                        var url = window.URL.createObjectURL(blob)
+
+                        dom.href = url
+                        dom.download = decodeURI(filename)
+                        dom.style.display = 'none'
+                        document.body.appendChild(dom)
+                        dom.click()
+                        dom.parentNode.removeChild(dom)
+                        window.URL.revokeObjectURL(url)
+                    })
+                }
+            },
+            upload: function (inputName) {
+                console.debug(this.uploadFiles)
+                var data = new FormData()
+                this.uploadFiles.forEach(function (itemFile) {
+                    data.append(itemFile.inputName, itemFile.file)
+                })
+                http.post('/api/upload', data, {
+                    'Content-Type': 'multipart/form-data'
+                }).then(function (resp) {
+                    console.debug('上传完成：')
+                    console.debug(resp)
+                })
+            },
+            inputFileElementChange(e) {
+                console.debug(e)
+
+                var fileList = e.target.files
+                if (fileList.length === 0) return
+                this.uploadFiles.push({
+                    inputName: this.currentPath,
+                    file: fileList[0]
+                })
+
+            },
+            addUploadFile: function () {
+                // 触发 input:file 的点击事件
+                this.$refs['file-input-element'].click()
+            },
+            newFolder: function () {
+                // 打开新建目录 modal
+                this.creatingFolder = true
+            },
+            submitCreatingFolder: function () {
+                // 新建目录
+                var self = this
+                console.debug(this.createFolderOption)
+                var folderName = this.createFolderOption.folderName,
+                    validator = this.createFolderOption.folderNameValidator
+                if (!validator(folderName)) {
+                    alert('输入的文件名不合法！')
+                    return
+                }
+                var path = self.currentPath + '/' + folderName
+                http.post('/api/create-folder', 'folderName=' + encodeURI(path)).then(function (resp) {
+                    alert('创建文件夹成功')
+                    console.debug(resp)
+                    self.creatingFolder = false
+                }).catch(function (err) {
+                    alert('创建文件夹失败')
+                    console.error(err)
+                })
+            }
+        }
+    })
+</script>
+</body>
+</html>
