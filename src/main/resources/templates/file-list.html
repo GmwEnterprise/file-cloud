@@ -9,6 +9,12 @@
     <link rel="stylesheet" href="/resources/file-list.css">
 </head>
 <body>
+<div id="alert" style="display: none">
+    <div id="alert-message">
+        <div id="alert-message-content" style="width: 100%"></div>
+        <button style="margin-top: 20px" onclick="closeAlert()">确定</button>
+    </div>
+</div>
 <div id="v-app">
     <div class="block" id="file-upload">
         <h3>上传文件:</h3>
@@ -19,6 +25,7 @@
             <div class="flex-center" v-for="(file, idx) in uploadFiles" :key="idx">
                 <span class="upload-index">[{{ idx + 1 }}]</span>
                 <span class="upload-item">{{ file.inputName + '/' + file.file.name }}</span>
+                <span class="cancel-item" @click="removeUploadItem(idx)">×</span>
             </div>
         </div>
     </div>
@@ -65,6 +72,15 @@
 <script src="https://cdn.jsdelivr.net/npm/vue"></script>
 <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.20.0/axios.js"></script>
 <script>
+    window.alert = function (msg) {
+        document.getElementById('alert-message-content').innerHTML = JSON.stringify(msg)
+        document.getElementById('alert').style.display = 'flex'
+    }
+
+    var closeAlert = function () {
+        document.getElementById('alert').style.display = 'none'
+    }
+
     var http = axios.create()
 
     var app = new Vue({
@@ -75,6 +91,7 @@
                 "点击【FILE】项目将会下载文件",
                 "每次上传的文件将会添加到当前目录",
                 "支持批量上传文件",
+                "同名文件上传将覆盖现有文件"
             ],
             title: '文件存储',
             root: null,
@@ -165,28 +182,38 @@
                 }
             },
             upload: function (inputName) {
+                var vm = this
                 console.debug(this.uploadFiles)
                 var data = new FormData()
-                this.uploadFiles.forEach(function (itemFile) {
-                    data.append(itemFile.inputName, itemFile.file)
+                vm.uploadFiles.forEach(function (itemFile, index) {
+                    data.append('[' + index + ']' + itemFile.inputName, itemFile.file)
                 })
+                console.log(data);
                 http.post('/api/upload', data, {
                     'Content-Type': 'multipart/form-data'
                 }).then(function (resp) {
                     console.debug('上传完成：')
                     console.debug(resp)
+                    alert(resp.data)
+                    vm.uploadFiles = []
                 })
             },
-            inputFileElementChange(e) {
+            inputFileElementChange: function (e) {
                 console.debug(e)
 
                 var fileList = e.target.files
                 if (fileList.length === 0) return
+                if (this.uploadFiles.length >= 10) {
+                    alert('批量传输最多10个文件!')
+                    return
+                }
                 this.uploadFiles.push({
                     inputName: this.currentPath,
                     file: fileList[0]
                 })
-
+            },
+            removeUploadItem: function (index) {
+                this.uploadFiles.splice(index, 1)
             },
             addUploadFile: function () {
                 // 触发 input:file 的点击事件
